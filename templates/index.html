@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+
+    <!-- 이 부분은 절대 지우지 마세요. -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- 이 부분은 절대 지우지 마세요. -->
+
+    <!-- 구글폰트 -->
+    <link
+      href="https://fonts.googleapis.com/css?family=Stylish&display=swap"
+      rel="stylesheet"
+    />
+
+    <title>나홀로메모장 ver2.0</title>
+
+    <!-- style -->
+    <style type="text/css">
+      * {
+        font-family: "Stylish", sans-serif;
+      }
+
+      #card-list .col {
+        width: 250px;
+        height: 200px;
+        border: gainsboro solid;
+        border-radius: 0.1rem;
+      }
+    </style>
+    
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="p-5 mb-4 bg-light rounded-3">
+        <div class="container-fluid py-5">
+          <h1 class="display-4">
+            나홀로메모장 
+            <span class="bg-secondary text-white px-2 rounded">ver 2.0</span>
+        </h1>
+          <input id="memo-title" class="form-control" placeholder="제목을 입력하세요" /><br>
+          <textarea id="memo-content" class="form-control" placeholder="내용을 입력하세요" rows="2"></textarea><br>
+          <button type="submit" onclick="postMemo()" class="btn btn-primary">저장하기</button>
+        </div>
+      </div>
+    
+      
+
+      <div id="card-list" class="row row-cols-1 row-cols-md-3 g-4">
+
+          
+      </div>
+
+        
+      
+    </div>
+
+    <!-- 이 부분은 절대 지우지 마세요. -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- 이 부분은 절대 지우지 마세요. -->
+
+    <script>
+        
+      $(document).ready(function () {
+        $("#card-list").html("");
+        showMemos();
+      });
+
+
+      function postMemo() {
+        let mtitle = $("#memo-title").val();
+        let mdesc = $("#memo-content").val();
+
+        $.ajax({
+          type: "POST",
+          url: "/memos",
+          data: {title_give: mtitle, content_give: mdesc},
+          success: function (response) {
+            if (response["result"] == "success") {
+              alert("포스팅 성공!")
+              let memo = response["memo"];
+              makeCard(memo["_id"], memo["title"], memo["content"], memo["likes"]);
+              $("#memo-title").val("");
+              $("#memo-content").val("");
+                
+            } else {
+              alert("error!")
+            }
+          },
+        });
+      }
+
+      function showMemos() {
+        $.ajax({
+          type: "GET",
+          url: "/memos",
+          data: {},
+          success: function (response) {
+            let memos = response["memos"];
+            for (let i = 0; i < memos.length; i++) {
+              makeCard(memos[i]["_id"], memos[i]["title"], memos[i]["content"], memos[i]["likes"] )
+            }
+          },
+        });
+      }
+
+      function delMemos(button){
+        const $col = $(button).closest(".col");
+        const id = $col.data("id");
+        $.ajax({
+            type : "POST",
+            url : "/memos/delete",
+            data : {
+                id_give : id
+            },
+            success: function (response){
+                if (response["result"] == "success") {
+                    $col.remove();
+                }
+            }
+        })
+
+      }
+
+      function editMemos(button){
+        const $col = $(button).closest(".col");
+        const title = $col.find(".card-title span").text();
+        const text = $col.find(".card-text span").text();
+    
+        $col.find(".new-title").val(title).show();
+        $col.find(".new-text").val(text).show();
+        $col.find(".card-title span, .card-text span, .card-likes span").hide();
+        $col.find(".card-edit").hide();
+        $col.find(".save-button").show();
+    
+      }
+
+      function saveMemos(button){
+        const $col = $(button).closest(".col");
+        const id = $col.data("id");
+        let ntitle = $col.find(".new-title").val();        
+        let ndesc = $col.find(".new-text").val();
+
+        $.ajax({
+            type : "POST",
+            url : "/memos/update",
+            data : {
+                id_give : id,
+                title_give : ntitle,
+                content_give : ndesc
+            },
+            success: function(response){
+                if(response["result"] == "success" ) {
+                    alert("수정 완료!")
+                    $col.find(".new-title").hide();
+                    $col.find(".new-text").hide();
+                    $col.find(".card-title span").text(ntitle).show();
+                    $col.find(".card-text span").text(ndesc).show();
+                    $col.find(".card-likes span").show();
+                    $col.find(".card-edit").show();
+                    $col.find(".save-button").hide();
+
+                }
+            }
+        })
+
+        
+
+        
+      }
+
+      function addLikes(button){
+        const $col = $(button).closest(".col");
+        const $likes = $col.find(".card-likes");
+        let num = $col.find(".card-likes span").text();
+        $col.find(".card-likes span").text(++num);
+        $likes.attr("data-last-liked-at", Date.now());
+        likeSort();
+
+      }
+
+      function makeCard(id, title, desc, likes) {
+        let tempHtml = `<div class="col" data-id="${id}">
+	            <div class="card-title">
+	              <span>${title}</span>
+	              <textarea class="new-title" style="display: none"></textarea>
+	            </div>
+	            <div class="card-text">
+	              <span>${desc}</span>
+	              <textarea class="new-text" style="display: none"></textarea>
+	            </div>
+	            <div class="card-likes" data-last-liked-at="0">
+	              <span>${likes}</span>
+	            </div>
+	            <div class="card-edit">
+	              <button onclick="editMemos(this)" type="submit" class="btn btn-info edit-button" >수정</button>
+	              <button onclick="delMemos(this)" type="submit" class="btn btn-danger delete-button" >삭제</button>
+	              <button onclick="addLikes(this)" type="button" class="btn btn-outline-primary link-like" >좋아요👍</button>
+	            </div>
+	            <button onclick="saveMemos(this)" type="button" class="btn btn-success save-button" style="display: none">저장</button>
+	          </div>`;
+        $("#card-list").append(tempHtml);
+      }
+      
+
+      function likeSort(){
+        let cards = $("#card-list .col").get();
+        cards.sort(function (a,b) {
+            let l1 = parseInt($(a).find(".card-likes span").text());
+            let l2 = parseInt($(b).find(".card-likes span").text());
+
+            if(l1 != l2) {
+                return l2 - l1;
+            }
+            
+            let ld1 = Number($(a).find(".card-likes").attr("data-last-liked-at") || 0);
+            let ld2 = Number($(b).find(".card-likes").attr("data-last-liked-at") || 0);
+
+            return ld2 - ld1;
+        })
+
+        $("#card-list").append(cards);
+
+      }
+
+	    
+
+      
+    </script>
+  </body>
+</html>
